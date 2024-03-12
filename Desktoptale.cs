@@ -1,9 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Desktoptale.Characters;
 using Desktoptale.Messages;
 using Desktoptale.Messaging;
-using Desktoptale.Registry;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Color = Microsoft.Xna.Framework.Color;
@@ -12,15 +10,14 @@ namespace Desktoptale
 {
     public class Desktoptale : Game
     {
-        private IRegistry<CharacterType, int> characterRegistry { get; }
-        
         private GraphicsDeviceManager graphics;
         private SpriteBatch spriteBatch;
         private InputManager inputManager;
 
+        private CharacterFactory characterFactory;
         private Character character;
         private ISet<IGameObject> gameObjects;
-
+        
         public Desktoptale()
         {
             graphics = new GraphicsDeviceManager(this);
@@ -28,8 +25,6 @@ namespace Desktoptale
             
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
-            
-            characterRegistry = new CharacterRegistry();
             
             WindowsUtils.MakeWindowOverlay(Window);
         }
@@ -48,14 +43,15 @@ namespace Desktoptale
             
             inputManager = new InputManager(this, GraphicsDevice);
             spriteBatch = new SpriteBatch(GraphicsDevice);
+            characterFactory = new CharacterFactory();
             
             gameObjects = new HashSet<IGameObject>();
 
-            ContextMenu contextMenu = new ContextMenu(Window, inputManager, GraphicsDevice, characterRegistry);
+            ContextMenu contextMenu = new ContextMenu(Window, inputManager, GraphicsDevice);
             contextMenu.Initialize();
             gameObjects.Add(contextMenu);
             
-            MessageBus.Send(new CharacterChangeRequestedMessage { Character = CharacterRegistry.CLOVER});
+            MessageBus.Send(new CharacterChangeRequestedMessage { Character = CharacterType.Clover });
             MessageBus.Send(new ScaleChangeRequestedMessage { ScaleFactor = 2 });
             MessageBus.Send(new IdleMovementChangeRequestedMessage { Enabled = true });
             MessageBus.Send(new UnfocusedMovementChangeRequestedMessage { Enabled = false });
@@ -67,8 +63,7 @@ namespace Desktoptale
         /// </summary>
         protected override void LoadContent()
         {
-            ExternalCharacterFactory externalCharacterFactory = new ExternalCharacterFactory("Content/Custom/", graphics.GraphicsDevice);
-            externalCharacterFactory.AddAllToRegistry(characterRegistry);
+            
         }
 
         /// <summary>
@@ -93,7 +88,7 @@ namespace Desktoptale
             {
                 gameObject.Update(gameTime);
             }
-            
+
             WindowsUtils.MakeTopmostWindow(Window);
             
             base.Update(gameTime);
@@ -117,19 +112,10 @@ namespace Desktoptale
         
         private void OnCharacterChangeRequestedMessage(CharacterChangeRequestedMessage message)
         {
-            Character newCharacter;
-            try
-            {
-                newCharacter = message.Character.FactoryFunction
-                    .Invoke(new CharacterCreationContext(graphics, Window, spriteBatch, inputManager));
-
-                newCharacter.LoadContent(Content);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine($"Failed to switch character: {e.Message}");
-                return;
-            }
+            Character newCharacter =
+                characterFactory.Create(message.Character, graphics, Window, spriteBatch, inputManager);
+            
+            newCharacter.LoadContent(Content);
 
             if (character != null)
             {
@@ -149,8 +135,6 @@ namespace Desktoptale
             newCharacter.Initialize();
             gameObjects.Add(newCharacter);
             character = newCharacter;
-            
-            MessageBus.Send(new CharacterChangeSuccessMessage { Character = message.Character });
         }
     }
 }

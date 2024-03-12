@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Windows.Forms;
-using Desktoptale.Characters;
 using Desktoptale.Messages;
 using Desktoptale.Messaging;
-using Desktoptale.Registry;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
@@ -16,25 +13,23 @@ namespace Desktoptale
         private GameWindow window;
         private InputManager inputManager;
         private GraphicsDevice graphicsDevice;
-        private IRegistry<CharacterType, int> characterRegistry;
         
         private int currentScaleFactor;
         private CharacterType currentCharacter;
         private bool idleMovementEnabled = true;
         private bool unfocusedMovementEnabled = false;
 
-        public ContextMenu(GameWindow window, InputManager inputManager, GraphicsDevice graphicsDevice, IRegistry<CharacterType, int> characterRegistry)
+        public ContextMenu(GameWindow window, InputManager inputManager, GraphicsDevice graphicsDevice)
         {
             this.window = window;
             this.inputManager = inputManager;
             this.graphicsDevice = graphicsDevice;
-            this.characterRegistry = characterRegistry;
         }
         
         public void Initialize()
         {
             MessageBus.Subscribe<ScaleChangeRequestedMessage>(OnScaleChangeRequestedMessage);
-            MessageBus.Subscribe<CharacterChangeSuccessMessage>(OnCharacterChangeSuccessMessage);
+            MessageBus.Subscribe<CharacterChangeRequestedMessage>(OnCharacterChangeRequestedMessage);
             MessageBus.Subscribe<IdleMovementChangeRequestedMessage>(OnIdleMovementChangeRequestedMessage);
             MessageBus.Subscribe<UnfocusedMovementChangeRequestedMessage>(OnUnfocusedMovementChangeRequestedMessage);
         }
@@ -54,33 +49,13 @@ namespace Desktoptale
             
             ToolStripMenuItem characterItem = new ToolStripMenuItem("Character");
             contextMenuStrip.Items.Add(characterItem);
-
-            IDictionary<string, ToolStripMenuItem> categoryItems = new Dictionary<string, ToolStripMenuItem>();
-
-            foreach (CharacterType character in characterRegistry.GetAll())
-            {
-                ToolStripMenuItem characterSelectItem = new ToolStripMenuItem(character.Name, null, (o, e) => MessageBus.Send(new CharacterChangeRequestedMessage { Character = character }));
-                characterSelectItem.Checked = currentCharacter == character;
-                
-                ToolStripMenuItem parent;
-                if (character.Category == null)
-                {
-                    parent = characterItem;
-                }
-                else
-                {
-                    if (!categoryItems.ContainsKey(character.Category))
-                    {
-                        ToolStripMenuItem categoryItem = new ToolStripMenuItem(character.Category);
-                        characterItem.DropDownItems.Add(categoryItem);
-                        categoryItems.Add(character.Category, categoryItem);
-                    }
-
-                    parent = categoryItems[character.Category];
-                }
-
-                parent.DropDownItems.Add(characterSelectItem);
-            }
+            
+            characterItem.DropDownItems.Add(GetCharacterItem(CharacterType.Clover, "Clover"));
+	    characterItem.DropDownItems.Add(GetCharacterItem(CharacterType.Frisk, "Frisk"));
+            characterItem.DropDownItems.Add(GetCharacterItem(CharacterType.Martlet, "Martlet"));
+            characterItem.DropDownItems.Add(GetCharacterItem(CharacterType.Starlo, "Starlo"));
+            characterItem.DropDownItems.Add(GetCharacterItem(CharacterType.Ceroba, "Ceroba"));
+            characterItem.DropDownItems.Add(GetCharacterItem(CharacterType.Axis, "Axis"));
             
             ToolStripMenuItem scaleItem = new ToolStripMenuItem("Scale");
             contextMenuStrip.Items.Add(scaleItem);
@@ -109,13 +84,20 @@ namespace Desktoptale
             
             contextMenuStrip.Show(mousePosition.X, mousePosition.Y);
         }
+
+        private ToolStripMenuItem GetCharacterItem(CharacterType characterType, string name)
+        {
+            ToolStripMenuItem characterSelectItem = new ToolStripMenuItem(name, null, (o, e) => MessageBus.Send(new CharacterChangeRequestedMessage { Character = characterType }));
+            characterSelectItem.Checked = currentCharacter == characterType;
+            return characterSelectItem;
+        }
         
         private void OnScaleChangeRequestedMessage(ScaleChangeRequestedMessage message)
         {
             currentScaleFactor = (int)message.ScaleFactor;
         }
 
-        private void OnCharacterChangeSuccessMessage(CharacterChangeSuccessMessage message)
+        private void OnCharacterChangeRequestedMessage(CharacterChangeRequestedMessage message)
         {
             currentCharacter = message.Character;
         }
@@ -132,7 +114,7 @@ namespace Desktoptale
 
         private void ShowInfoScreen()
         {
-            MessageBox.Show($"{ProgramInfo.NAME} {ProgramInfo.VERSION}\nCreated by {ProgramInfo.AUTHOR}\n\n{ProgramInfo.CREDITS}\n\n{ProgramInfo.DISCLAIMER}", "About");
+            MessageBox.Show($"{ProgramInfo.NAME} {ProgramInfo.VERSION}\nCreated by {ProgramInfo.AUTHOR}\n\n{ProgramInfo.DESCRIPTION}", "About");
         }
 
         public void LoadContent(ContentManager contentManager) {}
